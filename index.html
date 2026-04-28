@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 应用一键部署助手</title>
+    <!-- 使用 Tailwind CSS 通过 CDN 快速实现类似之前的 UI，因为不能用 React，我们用它来保证美观 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 一些自定义的简单样式补丁 */
+        .tooltip-container:hover .tooltip-content {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8 font-sans">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="flex items-center space-x-3 mb-8">
+            <div class="p-3 bg-blue-600 text-white rounded-xl shadow-lg">
+                <i data-lucide="github" class="w-8 h-8"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">AI 应用一键部署助手</h1>
+                <p class="text-slate-500 text-sm">将 AI 生成的代码无缝推送到你的 GitHub 仓库</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Settings & Repo Info -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- GitHub Settings Card -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                        <div class="flex items-center space-x-2 text-slate-800 font-semibold">
+                            <i data-lucide="key" class="w-5 h-5 text-blue-500"></i>
+                            <h2>GitHub 授权</h2>
+                        </div>
+                        <div id="userInfoContainer" class="hidden items-center space-x-2 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                            <img id="userAvatar" src="" alt="avatar" class="w-4 h-4 rounded-full" />
+                            <span id="userName"></span>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Personal Access Token</label>
+                            <div class="flex space-x-2">
+                                <input 
+                                    type="password" 
+                                    id="tokenInput"
+                                    placeholder="ghp_xxxxxxxxxxxxxxxxx"
+                                    class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition min-w-0"
+                                />
+                                <button
+                                    id="connectBtn"
+                                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition disabled:opacity-50 flex items-center shrink-0"
+                                >
+                                    连接
+                                </button>
+                            </div>
+                            
+                            <!-- Links and Tooltip -->
+                            <div class="mt-2.5 flex flex-col space-y-2.5">
+                                <p class="text-xs text-slate-500 flex items-center">
+                                    <i data-lucide="key" class="w-3.5 h-3.5 mr-1 shrink-0"></i>
+                                    <span>需在 GitHub 生成，勾选 "repo" 权限。<a href="https://github.com/settings/tokens/new" target="_blank" rel="noreferrer" class="text-blue-500 hover:underline">点击前往生成</a></span>
+                                </p>
+
+                                <div class="relative inline-flex items-center text-xs text-slate-500 hover:text-slate-700 cursor-help w-max tooltip-container">
+                                    <i data-lucide="alert-circle" class="w-3.5 h-3.5 mr-1 text-amber-500"></i>
+                                    <span class="border-b border-dashed border-slate-400">找不到仓库？(权限说明)</span>
+                                    
+                                    <!-- Tooltip -->
+                                    <div class="absolute left-0 top-full pt-2 w-[320px] opacity-0 invisible transition-all z-50 tooltip-content">
+                                        <div class="p-3.5 bg-white border border-slate-200 rounded-lg shadow-xl text-slate-600 cursor-default">
+                                            <p class="mb-2 text-sm">如果连接成功但没拉取到仓库，说明 <strong>Token 没有勾选 repo 权限</strong>。请按以下步骤配置：</p>
+                                            <ol class="list-decimal pl-4 space-y-1.5 text-[13px]">
+                                                <li>访问 GitHub -> Settings -> Developer Settings -> <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" class="text-blue-500 hover:underline font-medium">Personal access tokens</a>。</li>
+                                                <li>点击你的 Token（或新建）。</li>
+                                                <li>务必勾选 <strong>repo</strong> 整个大类。</li>
+                                                <li>复制新 Token 填入上方重新连接。</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Repo Settings Card -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center space-x-2 mb-4 text-slate-800 font-semibold border-b border-slate-100 pb-3">
+                        <i data-lucide="folder-git-2" class="w-5 h-5 text-emerald-500"></i>
+                        <h2>仓库配置</h2>
+                    </div>
+                    
+                    <div class="flex p-1 mb-4 bg-slate-100 rounded-lg">
+                        <button id="modeNewBtn" class="flex-1 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-emerald-600 shadow-sm">新建仓库</button>
+                        <button id="modeExistingBtn" class="flex-1 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700">选择已有</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- New Repo UI -->
+                        <div id="newRepoUI">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">新仓库名称</label>
+                                <input type="text" id="repoNameInput" value="ai-generated-app" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" placeholder="例如: my-awesome-app" />
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-sm font-medium text-slate-700 mb-1">描述 (可选)</label>
+                                <textarea id="repoDescInput" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition resize-none">This app was generated by AI and deployed with one click.</textarea>
+                            </div>
+                            <div class="flex items-center space-x-2 pt-1 mt-2">
+                                <input type="checkbox" id="isPrivateCheck" class="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 focus:ring-2" />
+                                <label for="isPrivateCheck" class="text-sm font-medium text-slate-700 cursor-pointer">设为私有仓库 (Private)</label>
+                            </div>
+                        </div>
+
+                        <!-- Existing Repo UI (Hidden by default) -->
+                        <div id="existingRepoUI" class="hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">选择目标仓库</label>
+                                <div class="flex space-x-2">
+                                    <select id="repoSelect" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition min-w-0" disabled>
+                                        <option value="">暂无可用仓库 (请先连接)</option>
+                                    </select>
+                                    <button id="refreshRepoBtn" title="刷新仓库列表" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition shrink-0">
+                                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 pt-3 border-t border-slate-100 mt-3">
+                            <input type="checkbox" id="enablePagesCheck" checked class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 focus:ring-2" />
+                            <label for="enablePagesCheck" class="text-sm font-medium text-slate-700 cursor-pointer">部署后启用 GitHub Pages</label>
+                            
+                            <!-- Pages Warning Tooltip -->
+                            <div class="relative inline-flex items-center text-amber-500 hover:text-amber-600 cursor-help tooltip-container">
+                                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                                <span class="ml-1 text-xs font-medium border-b border-dashed border-amber-400">注意</span>
+                                <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-60 opacity-0 invisible transition-all z-50 tooltip-content">
+                                    <div class="p-3 bg-slate-800 text-slate-100 rounded-lg shadow-xl text-xs cursor-default font-normal leading-relaxed relative">
+                                        请使用纯粹的 HTML、原生 CSS 和 Vanilla JavaScript，将所有代码写在一个文件中，才能直接在 GitHub Pages 运行。
+                                        <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action / Log Card -->
+                <div class="bg-slate-900 text-slate-300 p-5 rounded-2xl shadow-lg border border-slate-800 flex flex-col h-72">
+                    <button id="deployBtn" class="w-full py-3 rounded-lg font-bold text-white shadow-md transition-all flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-500 hover:shadow-blue-500/25 active:scale-[0.98]">
+                        <i data-lucide="send" class="w-5 h-5" id="deployIcon"></i>
+                        <span id="deployBtnText">一键推送到 GitHub</span>
+                    </button>
+
+                    <div id="logContainer" class="mt-4 flex-1 bg-slate-950 rounded-lg p-3 overflow-y-auto text-xs font-mono border border-slate-800 shadow-inner">
+                        <p class="text-slate-600 italic" id="emptyLogMsg">部署日志将显示在这里...</p>
+                        <!-- Logs will be injected here -->
+                    </div>
+
+                    <!-- Success Links Container -->
+                    <div id="successLinks" class="hidden mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex flex-col gap-3 text-sm">
+                        <div class="flex items-center text-green-400 font-semibold space-x-2 border-b border-green-500/20 pb-2">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>部署成功!</span>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <a id="repoLink" href="#" target="_blank" class="flex items-center text-slate-300 hover:text-white transition">
+                                <i data-lucide="github" class="w-4 h-4 mr-2"></i> 查看 GitHub 仓库源码
+                            </a>
+                            <a id="pagesLink" href="#" target="_blank" class="hidden flex items-center text-blue-400 hover:text-blue-300 hover:underline transition">
+                                <i data-lucide="globe" class="w-4 h-4 mr-2"></i> 访问 GitHub Pages 在线站点
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: File Editor -->
+            <div class="lg:col-span-8">
+                <div class="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col min-h-[600px]">
+                    <div class="flex items-center justify-between p-4 border-b border-slate-100">
+                        <div class="flex items-center space-x-2 text-slate-800 font-semibold">
+                            <i data-lucide="file-code-2" class="w-5 h-5 text-indigo-500"></i>
+                            <h2>代码文件清单</h2>
+                        </div>
+                        <button id="addFileBtn" class="flex items-center space-x-1 text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg transition">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>添加文件</span>
+                        </button>
+                    </div>
+
+                    <div id="fileListContainer" class="p-4 space-y-6 overflow-y-auto flex-1 max-h-[800px]">
+                        <!-- Files will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 状态管理 ---
+        let state = {
+            token: localStorage.getItem('github_pat_gemini_exporter') || '',
+            repoMode: 'new',
+            existingRepos: [],
+            userData: null,
+            files: [
+                { id: 1, name: 'index.html', content: '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>My AI App</title>\n</head>\n<body>\n  <h1>Hello from AI!</h1>\n</body>\n</html>' },
+                { id: 2, name: 'README.md', content: '# My AI App\n\nThis application was generated by AI and automatically deployed to GitHub.' }
+            ],
+            isDeploying: false
+        };
+
+        // --- DOM 元素引用 ---
+        const elements = {
+            tokenInput: document.getElementById('tokenInput'),
+            connectBtn: document.getElementById('connectBtn'),
+            userInfoContainer: document.getElementById('userInfoContainer'),
+            userAvatar: document.getElementById('userAvatar'),
+            userName: document.getElementById('userName'),
+            
+            modeNewBtn: document.getElementById('modeNewBtn'),
+            modeExistingBtn: document.getElementById('modeExistingBtn'),
+            newRepoUI: document.getElementById('newRepoUI'),
+            existingRepoUI: document.getElementById('existingRepoUI'),
+            
+            repoNameInput: document.getElementById('repoNameInput'),
+            repoDescInput: document.getElementById('repoDescInput'),
+            isPrivateCheck: document.getElementById('isPrivateCheck'),
+            repoSelect: document.getElementById('repoSelect'),
+            refreshRepoBtn: document.getElementById('refreshRepoBtn'),
+            enablePagesCheck: document.getElementById('enablePagesCheck'),
+            
+            deployBtn: document.getElementById('deployBtn'),
+            deployIcon: document.getElementById('deployIcon'),
+            deployBtnText: document.getElementById('deployBtnText'),
+            logContainer: document.getElementById('logContainer'),
+            emptyLogMsg: document.getElementById('emptyLogMsg'),
+            successLinks: document.getElementById('successLinks'),
+            repoLink: document.getElementById('repoLink'),
+            pagesLink: document.getElementById('pagesLink'),
+            
+            addFileBtn: document.getElementById('addFileBtn'),
+            fileListContainer: document.getElementById('fileListContainer')
+        };
+
+        // --- 初始化 ---
+        lucide.createIcons();
+        if (state.token) elements.tokenInput.value = state.token;
+        renderFiles();
+
+        // --- 工具函数 ---
+        const utf8ToBase64 = (str) => {
+            return window.btoa(
+                encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+                })
+            );
+        };
+
+        const addLog = (msg, type = 'info') => {
+            elements.emptyLogMsg.style.display = 'none';
+            const time = new Date().toLocaleTimeString();
+            const logEl = document.createElement('div');
+            
+            let textColor = 'text-slate-300';
+            if (type === 'error') textColor = 'text-red-400';
+            else if (msg.includes('✅') || msg.includes('🎉')) textColor = 'text-green-400';
+            
+            logEl.className = `mb-1 ${textColor}`;
+            logEl.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span>${msg}`;
+            
+            elements.logContainer.appendChild(logEl);
+            elements.logContainer.scrollTop = elements.logContainer.scrollHeight;
+        };
+
+        const setDeployingState = (isDeploying) => {
+            state.isDeploying = isDeploying;
+            if (isDeploying) {
+                elements.deployBtn.disabled = true;
+                elements.deployBtn.className = "w-full py-3 rounded-lg font-bold text-white shadow-md transition-all flex items-center justify-center space-x-2 bg-blue-600/50 cursor-not-allowed";
+                elements.deployIcon.setAttribute('data-lucide', 'loader-2');
+                elements.deployIcon.classList.add('animate-spin');
+                elements.deployBtnText.innerText = "正在部署中...";
+            } else {
+                elements.deployBtn.disabled = false;
+                elements.deployBtn.className = "w-full py-3 rounded-lg font-bold text-white shadow-md transition-all flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-500 hover:shadow-blue-500/25 active:scale-[0.98]";
+                elements.deployIcon.setAttribute('data-lucide', 'send');
+                elements.deployIcon.classList.remove('animate-spin');
+                elements.deployBtnText.innerText = "一键推送到 GitHub";
+            }
+            lucide.createIcons({ attrs: { class: ["w-5", "h-5"] } });
+        };
+
+        // --- 逻辑处理 ---
+        
+        // 文件渲染
+        function renderFiles() {
+            elements.fileListContainer.innerHTML = '';
+            state.files.forEach((file, index) => {
+                const fileHtml = `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-300 transition shadow-sm">
+                        <div class="bg-slate-50 px-3 py-2 flex items-center justify-between border-b border-slate-200">
+                            <div class="flex items-center flex-1 mr-4">
+                                <span class="text-xs font-mono text-slate-500 mr-2 bg-slate-200 px-2 py-0.5 rounded">FILE ${index + 1}</span>
+                                <input type="text" value="${file.name}" data-id="${file.id}" class="file-name-input flex-1 bg-transparent border-none text-sm font-semibold text-slate-700 focus:outline-none focus:ring-0 p-1" placeholder="例如: index.html">
+                            </div>
+                            <button data-id="${file.id}" class="delete-file-btn p-1.5 rounded-md transition ${state.files.length <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}" ${state.files.length <= 1 ? 'disabled' : ''}>
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <textarea data-id="${file.id}" class="file-content-input w-full h-64 p-4 font-mono text-sm bg-white text-slate-800 border-none focus:outline-none resize-y" spellcheck="false" placeholder="// 在此粘贴代码...">${file.content}</textarea>
+                    </div>
+                `;
+                elements.fileListContainer.insertAdjacentHTML('beforeend', fileHtml);
+            });
+            lucide.createIcons();
+
+            // 重新绑定事件
+            document.querySelectorAll('.file-name-input').forEach(el => {
+                el.addEventListener('input', (e) => updateFile(e.target.dataset.id, 'name', e.target.value));
+            });
+            document.querySelectorAll('.file-content-input').forEach(el => {
+                el.addEventListener('input', (e) => updateFile(e.target.dataset.id, 'content', e.target.value));
+            });
+            document.querySelectorAll('.delete-file-btn').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    if (state.files.length > 1) {
+                        state.files = state.files.filter(f => f.id != id);
+                        renderFiles();
+                    }
+                });
+            });
+        }
+
+        function updateFile(id, field, value) {
+            const file = state.files.find(f => f.id == id);
+            if (file) file[field] = value;
+        }
+
+        elements.addFileBtn.addEventListener('click', () => {
+            state.files.push({ id: Date.now(), name: `file_${state.files.length + 1}.js`, content: '' });
+            renderFiles();
+        });
+
+        // 仓库模式切换
+        const setRepoMode = (mode) => {
+            state.repoMode = mode;
+            if (mode === 'new') {
+                elements.modeNewBtn.className = "flex-1 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-emerald-600 shadow-sm";
+                elements.modeExistingBtn.className = "flex-1 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700";
+                elements.newRepoUI.classList.remove('hidden');
+                elements.existingRepoUI.classList.add('hidden');
+            } else {
+                elements.modeExistingBtn.className = "flex-1 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-emerald-600 shadow-sm";
+                elements.modeNewBtn.className = "flex-1 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700";
+                elements.existingRepoUI.classList.remove('hidden');
+                elements.newRepoUI.classList.add('hidden');
+                if (!state.userData) connectGitHub();
+            }
+        };
+
+        elements.modeNewBtn.addEventListener('click', () => setRepoMode('new'));
+        elements.modeExistingBtn.addEventListener('click', () => setRepoMode('existing'));
+        
+        elements.tokenInput.addEventListener('input', (e) => {
+            state.token = e.target.value;
+            state.userData = null;
+            elements.userInfoContainer.classList.add('hidden');
+        });
+
+        // 连接 GitHub
+        async function connectGitHub() {
+            if (!state.token.trim()) {
+                addLog('请输入 GitHub Personal Access Token', 'error');
+                return;
+            }
+            
+            elements.connectBtn.disabled = true;
+            elements.connectBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-1"></i> 连接中...`;
+            lucide.createIcons();
+
+            try {
+                const userRes = await fetch('https://api.github.com/user', {
+                    headers: { Authorization: `token ${state.token}` }
+                });
+                if (!userRes.ok) throw new Error('Token 无效或无权限');
+                
+                const user = await userRes.json();
+                state.userData = user;
+                localStorage.setItem('github_pat_gemini_exporter', state.token);
+                
+                // 更新 UI
+                elements.userAvatar.src = user.avatar_url;
+                elements.userName.innerText = user.login;
+                elements.userInfoContainer.classList.remove('hidden');
+                elements.userInfoContainer.classList.add('flex');
+                
+                addLog(`✅ 成功连接 GitHub 账号: @${user.login}，正在拉取仓库...`);
+
+                const reposRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100', {
+                    headers: { Authorization: `token ${state.token}` }
+                });
+                
+                if (reposRes.ok) {
+                    const repos = await reposRes.json();
+                    state.existingRepos = repos.filter(r => r.permissions?.push || r.permissions?.admin);
+                    
+                    elements.repoSelect.innerHTML = '';
+                    if (state.existingRepos.length > 0) {
+                        elements.repoSelect.disabled = false;
+                        state.existingRepos.forEach(repo => {
+                            const opt = document.createElement('option');
+                            opt.value = repo.name;
+                            opt.text = `${repo.name} ${repo.private ? '(Private)' : ''}`;
+                            elements.repoSelect.appendChild(opt);
+                        });
+                        addLog(`成功拉取 ${state.existingRepos.length} 个可操作仓库。`);
+                    } else {
+                        elements.repoSelect.disabled = true;
+                        elements.repoSelect.innerHTML = `<option value="">未拉取到可用仓库 (请检查Token权限)</option>`;
+                        addLog(`⚠️ 未拉取到可用仓库。请确保你的 Token 勾选了 "repo" 权限。`, 'error');
+                    }
+                }
+            } catch (err) {
+                addLog(`❌ 连接失败: ${err.message}`, 'error');
+                state.userData = null;
+                elements.userInfoContainer.classList.add('hidden');
+                elements.userInfoContainer.classList.remove('flex');
+            } finally {
+                elements.connectBtn.disabled = false;
+                elements.connectBtn.innerText = '连接';
+            }
+        }
+
+        elements.connectBtn.addEventListener('click', connectGitHub);
+        elements.refreshRepoBtn.addEventListener('click', connectGitHub);
+
+        // --- 核心部署逻辑 ---
+        elements.deployBtn.addEventListener('click', async () => {
+            if (!state.token.trim()) {
+                addLog('请输入 GitHub Personal Access Token', 'error');
+                return;
+            }
+            
+            const targetRepoName = state.repoMode === 'new' ? elements.repoNameInput.value.trim() : elements.repoSelect.value;
+            if (!targetRepoName) {
+                addLog(state.repoMode === 'new' ? '请输入新仓库名称' : '请选择一个已有仓库', 'error');
+                return;
+            }
+
+            localStorage.setItem('github_pat_gemini_exporter', state.token);
+            
+            setDeployingState(true);
+            elements.logContainer.innerHTML = '';
+            elements.successLinks.classList.add('hidden');
+            addLog('🚀 开始部署流程...');
+
+            try {
+                let owner = state.userData?.login;
+                if (!owner) {
+                    addLog('正在验证 GitHub Token 并获取用户信息...');
+                    const userRes = await fetch('https://api.github.com/user', {
+                        headers: { Authorization: `token ${state.token}` }
+                    });
+                    if (!userRes.ok) throw new Error(`Token无效或权限不足`);
+                    const fetchedUser = await userRes.json();
+                    owner = fetchedUser.login;
+                    state.userData = fetchedUser;
+                    addLog(`✅ 验证成功!`);
+                }
+
+                addLog(`正在目标仓库 ${owner}/${targetRepoName} 执行操作...`);
+                const repoCheckRes = await fetch(`https://api.github.com/repos/${owner}/${targetRepoName}`, {
+                    headers: { Authorization: `token ${state.token}` }
+                });
+
+                if (state.repoMode === 'new') {
+                    if (repoCheckRes.status === 404) {
+                        addLog('仓库不存在，正在创建新仓库...');
+                        const createRes = await fetch('https://api.github.com/user/repos', {
+                            method: 'POST',
+                            headers: { 
+                                Authorization: `token ${state.token}`,
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/vnd.github.v3+json'
+                            },
+                            body: JSON.stringify({
+                                name: targetRepoName,
+                                description: elements.repoDescInput.value,
+                                private: elements.isPrivateCheck.checked,
+                                auto_init: true
+                            })
+                        });
+                        if (!createRes.ok) throw new Error('创建仓库失败');
+                        addLog('✅ 仓库创建成功! 等待 GitHub 分支初始化...');
+                        await new Promise(r => setTimeout(r, 2000));
+                    } else if (repoCheckRes.ok) {
+                        addLog('⚠️ 该名称的仓库已存在，将直接更新其文件。');
+                    }
+                } else {
+                    if (!repoCheckRes.ok) throw new Error('选定的仓库不存在或无权访问');
+                    addLog('ℹ️ 正在更新已有仓库...');
+                }
+
+                // 上传文件
+                for (const file of state.files) {
+                    const fileName = file.name.trim();
+                    if (!fileName) continue;
+                    
+                    addLog(`正在处理文件: ${fileName} ...`);
+                    const encodedContent = utf8ToBase64(file.content);
+                    
+                    let maxRetries = state.repoMode === 'new' ? 3 : 1;
+                    let uploadSuccess = false;
+                    let lastErrorDetail = '';
+
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        let fileSha = undefined;
+                        const fileCheckRes = await fetch(`https://api.github.com/repos/${owner}/${targetRepoName}/contents/${fileName}`, {
+                            headers: { Authorization: `token ${state.token}` }
+                        });
+                        
+                        if (fileCheckRes.ok) {
+                            const fileData = await fileCheckRes.json();
+                            fileSha = fileData.sha;
+                            if (attempt === 1) addLog(`  > 文件已存在，将覆盖更新...`);
+                        }
+
+                        const uploadRes = await fetch(`https://api.github.com/repos/${owner}/${targetRepoName}/contents/${fileName}`, {
+                            method: 'PUT',
+                            headers: { 
+                                Authorization: `token ${state.token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                message: `Add/Update ${fileName} via AI Exporter`,
+                                content: encodedContent,
+                                sha: fileSha
+                            })
+                        });
+
+                        if (uploadRes.ok) {
+                            uploadSuccess = true;
+                            break;
+                        } else {
+                            lastErrorDetail = `HTTP ${uploadRes.status}`;
+                            try {
+                                const errData = await uploadRes.json();
+                                lastErrorDetail = errData.message;
+                            } catch (e) {}
+
+                            if (attempt < maxRetries) {
+                                addLog(`  > 等待后台就绪，准备重试 (${attempt}/${maxRetries})...`);
+                                await new Promise(r => setTimeout(r, 3000));
+                            }
+                        }
+                    }
+
+                    if (!uploadSuccess) throw new Error(`上传 ${fileName} 失败: ${lastErrorDetail}`);
+                    addLog(`✅ ${fileName} 提交成功!`);
+                }
+
+                // 配置 Pages
+                const enablePages = elements.enablePagesCheck.checked;
+                let finalPagesUrl = '';
+                const isRepoPrivate = state.repoMode === 'new' ? elements.isPrivateCheck.checked : 
+                    state.existingRepos.find(r => r.name === targetRepoName)?.private;
+                
+                if (enablePages && !isRepoPrivate) {
+                    addLog('正在等待文件同步，准备配置 Pages...');
+                    await new Promise(res => setTimeout(res, 2000));
+                    
+                    try {
+                        const repoDetailsRes = await fetch(`https://api.github.com/repos/${owner}/${targetRepoName}`, {
+                            headers: { Authorization: `token ${state.token}` }
+                        });
+                        const repoDetails = await repoDetailsRes.json();
+                        
+                        const pagesRes = await fetch(`https://api.github.com/repos/${owner}/${targetRepoName}/pages`, {
+                            method: 'POST',
+                            headers: {
+                                Authorization: `token ${state.token}`,
+                                'Content-Type': 'application/json',
+                                Accept: 'application/vnd.github.v3+json'
+                            },
+                            body: JSON.stringify({ source: { branch: repoDetails.default_branch || 'main', path: '/' } })
+                        });
+
+                        finalPagesUrl = `https://${owner}.github.io/${targetRepoName}/`;
+                        if (pagesRes.status === 201 || pagesRes.status === 204 || pagesRes.status === 409) {
+                            addLog('✅ GitHub Pages 配置成功！');
+                        } else {
+                            addLog(`⚠️ Pages 配置失败`, 'error');
+                        }
+                    } catch (err) {
+                        addLog(`⚠️ Pages 配置异常: ${err.message}`, 'error');
+                    }
+                } else if (enablePages && isRepoPrivate) {
+                    addLog('⚠️ 注意: 免费版 GitHub 无法为私有仓库开启 Pages，已跳过。', 'error');
+                }
+
+                // 成功收尾
+                addLog(`🎉 全部操作完成！应用已成功推送。`);
+                
+                elements.repoLink.href = `https://github.com/${owner}/${targetRepoName}`;
+                if (finalPagesUrl) {
+                    elements.pagesLink.href = finalPagesUrl;
+                    elements.pagesLink.classList.remove('hidden');
+                    elements.pagesLink.classList.add('flex');
+                } else {
+                    elements.pagesLink.classList.add('hidden');
+                    elements.pagesLink.classList.remove('flex');
+                }
+                
+                elements.successLinks.classList.remove('hidden');
+                elements.successLinks.classList.add('flex');
+
+            } catch (err) {
+                addLog(`❌ 错误: ${err.message}`, 'error');
+            } finally {
+                setDeployingState(false);
+            }
+        });
+
+    </script>
+</body>
+</html>
